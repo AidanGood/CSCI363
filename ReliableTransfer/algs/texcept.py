@@ -1,0 +1,3 @@
+
+class TransferFailed(Exception):
+    pass
