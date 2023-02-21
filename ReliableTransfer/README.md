@@ -9,8 +9,8 @@ Computer Networking, Project 1. "ThreeAndCheck"
 
 ## Authors
 
-- [@AidanGood](https://www.github.com/AidanGood)
-- [@cet008](https://www.github.com/cet008)
+- [Aidan Good @AidanGood](https://www.github.com/AidanGood)
+- [Charlie Taylor @cet008](https://www.github.com/cet008)
 
 
 ## Protocol Sequence Diagram
