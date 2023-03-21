@@ -42,7 +42,7 @@ else:
 sock.connect(('134.82.9.147', 12345))
 sock.settimeout(1)
 
-
+# Sends packets with increasing data
 def send_packets():
     global total_packets_sent, packets_sent, list_of_sent_packets, run_time
     while (time.time() - run_time) < args.duration:
@@ -100,13 +100,13 @@ recv_thread.start()
 # Wait for duration to elapse
 time.sleep(args.duration)
 
-
+# Get list of recieved packet order
 def get_recv(list_recv):
     list_nums = []
     for packet in list_recv:
         list_nums.append(packet.data[0])
     return list_nums
-
+# Calculate packet OOO and lost numbers
 def calculate_packet(rec_packets):
     seen = []
     oooCount, missingCount = 0, 0
@@ -123,11 +123,11 @@ def calculate_packet(rec_packets):
     print("Out Of Order: " + str(oooCount))
     print("Missing: " + str(missingCount))
     return(oooCount, missingCount)
-
 list_nums = get_recv(list_of_recieved_packets)
 ooo, missing = calculate_packet(list_nums)
 
-# technically doesn't work 100% if a packet is dropped but would be close enough anyway
+# Sort the list of recieved packets
+# technically doesn't get 100% if a packet is dropped but is close enough
 def clean_recv(list_of_recieved_packets):
     sorted_list = []
     #print(list_of_recieved_packets)
@@ -142,6 +142,7 @@ def clean_recv(list_of_recieved_packets):
 
     return sorted_list
 
+# Calculate the RTT for all packets recieved
 def calc_rtt(sent_list, sorted_list):
     _rtt = 0
     for i in range(min(len(sent_list), len(sorted_list))):
