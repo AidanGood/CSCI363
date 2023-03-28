@@ -1,10 +1,30 @@
+"""
+A sample program to send ICMP echo requests to a host to demonstrate
+how to use the socket module to send and receive ICMP messages.
+
+This requires root privileges to run. 
+sudo su
+
+Marchiori, 2023
+
+test sites:
+
+eg.bucknell.edu
+bbc.co.uk
+asahi-net.jp
+google.com
+yahoo.com
+apple.com
+
+"""
+
 import argparse
 import socket
 import struct
 import time
 import random
 
-def icmp_socket(timeout = 1, ttl = 30):
+def icmp_socket(timeout = 1, ttl = 1):
 	"Create a raw socket for ICMP messages"
 	s = socket.socket(
 			family = socket.AF_INET, 
@@ -34,17 +54,6 @@ def checksum(data):
 
 
 def ping(host, skt = None, seqno = 1, ttl = 30, quiet = False):
-    #     Echo or Echo Reply Message
-    #     0                   1                   2                   3
-    #     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #    |     Type      |     Code      |          Checksum             |
-    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #    |           Identifier          |        Sequence Number        |
-    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #    |     Data ...
-    #    +-+-+-+-+-
-    # https://www.rfc-editor.org/rfc/rfc792
 
     ident = random.randint(0, 0xffff)
     header = struct.pack("!BBHHH", 8, 0, 0, ident, seqno)
@@ -57,12 +66,11 @@ def ping(host, skt = None, seqno = 1, ttl = 30, quiet = False):
     header = struct.pack("!BBHHH", 8, 0, c, ident, seqno)
     packet = header + payload
 
-    print(f"PING {host} {len(packet)}.")
-
     # Set the TTL
     skt.setsockopt(socket.SOL_IP, socket.IP_TTL, ttl)
     skt.sendto(packet, (host, 0)) 
     resp, addr = skt.recvfrom(1024)
+    timeReceived = time.time()
     
     rx_time_ns = int(1e9 * time.time())
 
@@ -70,22 +78,25 @@ def ping(host, skt = None, seqno = 1, ttl = 30, quiet = False):
     icmp_type, icmp_code, icmp_checksum, icmp_id, icmp_seq = \
         struct.unpack("!BBHHH", resp[20:28])
 
-    assert icmp_type == 0, "invalid icmp type"
-    assert icmp_code == 0, "invalid icmp code"
-
-    assert icmp_id == ident, "invalid icmp ident"
-    assert icmp_seq == seqno, "invalid icmp seq"
-
     local_check = checksum(resp)
-    #assert local_check == 0, "invaild icmp checksum"
 
     icmp_send_time = struct.unpack("!Q", resp[28:36])[0]
 
     rtt_ns = rx_time_ns - icmp_send_time
     rtt_ms = rtt_ns / 1e6
 
-    print(f"ICMP response: {icmp_type}, {icmp_code} [{local_check}], rtt = {rtt_ms:6.2f} ms")
-    return True, rtt_ms
+    if icmp_type == 0:
+        print("Reached host " + host + " in " + str(ttl) + " hops")
+        return False
+
+    hostName = ""
+    try:
+        hostName = str(socket.gethostbyaddr(str(addr[0]))[0])
+    except:
+        hostName = str(addr[0])
+
+    print(str(ttl) + " " + hostName + " (" + str(addr[0]) + ")")
+    return True
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
@@ -98,19 +109,15 @@ if __name__=="__main__":
 	s = icmp_socket()
 	rtts = []
 	try:				
-		# wrap this in a try block so we can close the socket if there is an error		
-		for i in range(args.num):
-			valid, rtt = ping(args.host, seqno = i, skt = s, ttl=args.ttl)
-			if valid:	
-				rtts.append(rtt)
+		# wrap this in a try block so we can close the socket if there is an error	
+		i = 0	
+		valid = True
+		while valid:
+			i += 1
+			valid = ping(args.host, seqno = i, skt = s, ttl=i)
 		
 	except KeyboardInterrupt:
 		print("^C")
 	finally:
 		# close the socket when done
 		s.close()
-
-	print("---  ping statistics ---")
-	print (f"{args.num} packets transmitted, {len(rtts)} packets received, {100*(args.num - len(rtts))/args.num:3.2f}% packet loss, time {sum(rtts):8.3f}ms")
-	if len(rtts) > 0:		
-		print (f"rtt min/avg/max = {min(rtts):6.3f}/{sum(rtts)/len(rtts):6.3f}/{max(rtts):6.3f} ms")
